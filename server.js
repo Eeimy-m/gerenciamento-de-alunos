@@ -93,7 +93,9 @@ app.post('/login', async(req,res) => {
         { expiresIn: '1h', algorithm: 'HS256' }
     );
 
-    res.json({ message: `Login efetuado pelo usuário ${user.username}`, jwt: token });
+    res.json({ 
+        token : token 
+    });
 
 });
 
