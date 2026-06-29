@@ -66,24 +66,24 @@ app.use('/alunos', authenticateJWT);
 
 app.post('/register', async(req,res) => {
 
-    const {username, passowrd} = req.body;
+    const {username, password} = req.body;
 
-    const hashedPassword = await bcrypt.hash(passowrd, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    users.push( {username, passowrd : hashedPassword });
+    users.push( {username, password : hashedPassword });
     console.log(users);
 
-    res.status(201).send('User registered');
+    res.status(201).json({ message: "Usuário criado!" });
 
 });
 
 app.post('/login', async(req,res) => {
 
-    const {username, passowrd} = req.body;
+    const {username, password} = req.body;
 
     const user = users.find( user => user.username === username );
 
-    if ( !user || !( await bcrypt.compare(passowrd, user.passowrd) ) ) {
+    if ( !user || !( await bcrypt.compare(password, user.password) ) ) {
         return res.status(401).json({ message : "Login Incorreto!"});
     }
 
@@ -103,29 +103,25 @@ app.post('/alunos', async(req,res) => {
 
     alunos.push({id, nome, ra, nota1, nota2});
 
-    req.status(201).json({message : 'Aluno criado com sucesso!'});
+    res.status(201).json({message : 'Aluno criado com sucesso!'});
 });
 
 app.get('/alunos/medias', async(req,res) => {
+    const medias = alunos.map(aluno => ({
+        nome: aluno.nome,
+        media: (aluno.nota1 + aluno.nota2) / 2
+    }));
+
+    res.json(medias);
+})
+
+app.get('/alunos/aprovados', async(req,res) => {
     const status = alunos.map(aluno => {
         const media = (aluno.nota1 + aluno.nota2) / 2;
         return {
             nome : aluno.nome,
             status : media >= 6 ? "aprovado" : "reprovado"
         };
-    });
-
-    res.json(status);
-})
-
-app.get('/alunos/aprovados', async(req,res) => {
-
-    const status = alunos.map(aluno => {
-        const media = (aluno.nota1 + aluno.nota2) / 2;
-        return {
-            nome : aluno.nome,
-            media : aluno.media
-        }; 
     });
 
     res.json(status);
@@ -139,7 +135,7 @@ app.put('/alunos/:id', async(req, res) => {
     const aluno = alunos.find(a => a.id === parseInt(req.params.id));
 
     if(!aluno) {
-        res.status(404).json({ message : "Aluno não encontrado!" });
+        return res.status(404).json({ message : "Aluno não encontrado!" });
     }
 
     const { nome, ra, nota1, nota2} = req.body;
@@ -167,7 +163,7 @@ app.delete('/alunos/:id', async(req,res) => {
     const index = alunos.findIndex(a => a.id === parseInt(req.params.id))
 
     if(index === -1) {
-        res.status(404).json({ message : "Aluno não encontrado!"});
+        return res.status(404).json({ message : "Aluno não encontrado!"});
     }
 
     alunos.splice(index, 1);
