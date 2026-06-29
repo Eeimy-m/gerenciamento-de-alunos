@@ -42,9 +42,9 @@ const authenticateJWT = (req, res, next) => {
             if(err.name === 'TokenExpiredError') {
                 return res.status(401).json({ message : "Acesso negado. Token expirado."})
             } else if (err.name === 'JsonWebTokenError') {
-                return res.status(403).send('Acesso negado. Token inválido.');
+                return res.status(403).json({ message : "Acesso negado. Token inválido." });
             } else {
-                return res.status(403).send('Acesso negado. Erro na verificação do token.');
+                return res.status(403).json({ message : "Acesso negado. Erro na verificação do token." });
             }   
         }
 
