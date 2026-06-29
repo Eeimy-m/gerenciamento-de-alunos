@@ -3,10 +3,10 @@ import express from "express";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 
-dotenv.config();
-
 const app = express();
 app.use(express.json());
+
+const users = [];
 
 const alunos = [
     { id: 1, nome: "Asdrubal", ra: "11111", nota1: 8.5, nota2: 9.5 },
@@ -37,16 +37,19 @@ const authenticateJWT = (req, res, next) => {
     }
 
     jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-        if(err.name === 'TokenExpiredError') {
-            return res.status(401).json({ message : "Acesso negado. Token expirado."})
-        }
-        else if (err.name === 'JsonWebTokenError') {
+
+        if(err) {
+            if(err.name === 'TokenExpiredError') {
+                return res.status(401).json({ message : "Acesso negado. Token expirado."})
+            } else if (err.name === 'JsonWebTokenError') {
                 return res.status(403).send('Acesso negado. Token inválido.');
-        } else {
-            return res.status(403).send('Acesso negado. Erro na verificação do token.');
+            } else {
+                return res.status(403).send('Acesso negado. Erro na verificação do token.');
+            }   
         }
 
-        res.user = user;
+        req.user = user;
+
         const issuedAtISO = new Date(user.iat * 1000).toISOString();
         const expiresAtISO = new Date(user.exp * 1000).toISOString();
 
@@ -63,11 +66,11 @@ app.use('/alunos', authenticateJWT);
 
 app.post('/register', async(req,res) => {
 
-    const {user, passowrd} = req.body;
+    const {username, passowrd} = req.body;
 
     const hashedPassword = await bcrypt.hash(passowrd, 10);
 
-    users.push( {user, passowrd : hashedPassword });
+    users.push( {username, passowrd : hashedPassword });
     console.log(users);
 
     res.status(201).send('User registered');
@@ -81,24 +84,22 @@ app.post('/login', async(req,res) => {
     const user = users.find( user => user.username === username );
 
     if ( !user || !( await bcrypt.compare(passowrd, user.passowrd) ) ) {
-
         return res.status(401).json({ message : "Login Incorreto!"});
     }
 
     const token = jwt.sign(
-        { user : user.username },
+        { username : user.username },
         process.env.JWT_SECRET,
         { expiresIn: '1h', algorithm: 'HS256' }
     );
 
-    res.json(token);
-    console.log('Login efetuado pelo usuário ' + user.name);
+    res.json({ message: `Login efetuado pelo usuário ${user.username}`, jwt: token });
 
 });
 
 app.post('/alunos', async(req,res) => {
 
-    const {id, name, ra, nota1, nota2} = req.body;
+    const {id, nome, ra, nota1, nota2} = req.body;
 
     alunos.push({id, nome, ra, nota1, nota2});
 
@@ -106,13 +107,15 @@ app.post('/alunos', async(req,res) => {
 });
 
 app.get('/alunos/medias', async(req,res) => {
+    const status = alunos.map(aluno => {
+        const media = (aluno.nota1 + aluno.nota2) / 2;
+        return {
+            nome : aluno.nome,
+            status : media >= 6 ? "aprovado" : "reprovado"
+        };
+    });
 
-    const medias = alunos.map(aluno => ({
-        nome: aluno.nome,
-        media : (aluno.nota1 + aluno.nota2) / 2
-    }));
-
-    res.json(medias);
+    res.json(status);
 })
 
 app.get('/alunos/aprovados', async(req,res) => {
@@ -132,7 +135,7 @@ app.get('/alunos', async(req,res) => {
     res.json(alunos);
 })
 
-app.put('/alunos/id', async(req, res) => {
+app.put('/alunos/:id', async(req, res) => {
     const aluno = alunos.find(a => a.id === parseInt(req.params.id));
 
     if(!aluno) {
@@ -149,7 +152,7 @@ app.put('/alunos/id', async(req, res) => {
     res.json(aluno);
 })
 
-app.get('/alunos/id', async(req, res) => {
+app.get('/alunos/:id', async(req, res) => {
 
     const aluno = alunos.find(a => a.id === parseInt(req.params.id));
 
@@ -160,10 +163,10 @@ app.get('/alunos/id', async(req, res) => {
     res.json(aluno);
 })
 
-app.delete('/alunos/id', async(req,res) => {
+app.delete('/alunos/:id', async(req,res) => {
     const index = alunos.findIndex(a => a.id === parseInt(req.params.id))
 
-    if(!index) {
+    if(index === -1) {
         res.status(404).json({ message : "Aluno não encontrado!"});
     }
 
